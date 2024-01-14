@@ -1,5 +1,5 @@
-import type { Config } from "drizzle-kit";
 import * as dotenv from "dotenv";
+import type { Config } from "drizzle-kit";
 
 dotenv.config({ path: "../../.env" });
 
@@ -19,5 +19,5 @@ export default {
   schema: "./src/schema",
   driver: "mysql2",
   dbCredentials: { uri },
-  tablesFilter: ["t3turbo_*"],
+  tablesFilter: ["synergy_*"],
 } satisfies Config;

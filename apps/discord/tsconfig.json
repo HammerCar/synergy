@@ -1,8 +1,12 @@
 {
   "extends": "./node_modules/@acme/tsconfig/base.json",
   "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["./src/*"]
+    },
     "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo.json"
   },
-  "include": ["src", "drizzle.config.ts"],
+  "include": ["."],
   "exclude": ["node_modules"]
 }
