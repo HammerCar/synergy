@@ -22,7 +22,7 @@ RUN apt-get update -qq && \
 
 # Install node modules
 COPY --link package.json ./
-RUN pnpm install
+RUN npm install -g pnpm && pnpm install
 
 # Copy application code
 COPY --link . .
