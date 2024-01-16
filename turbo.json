@@ -13,9 +13,12 @@
         "next-env.d.ts",
         ".expo/**",
         ".output/**",
-        ".vercel/output/**"
-      ]
+        ".vercel/output/**",
+        "dist/**"
+      ],
+      "cache": false
     },
+    "start": {},
     "dev": {
       "persistent": true,
       "cache": false

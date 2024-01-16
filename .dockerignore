@@ -1,5 +1,8 @@
 /.git
-/node_modules
+/.github
+/turbo
+node_modules
+dist
 .dockerignore
 .env
 Dockerfile
