@@ -14,7 +14,7 @@ ENV NODE_ENV="production"
 
 
 # Throw-away build stage to reduce size of final image
-FROM base as build
+FROM base
 
 # Install packages needed to build node modules
 RUN apt-get update -qq && \
@@ -23,15 +23,8 @@ RUN apt-get update -qq && \
 # Copy application code
 COPY --link . .
 RUN npm install -g pnpm
+RUN npm install turbo --global
 RUN pnpm install
 
-
-# Final stage for app image
-FROM base
-
-# Copy built application
-COPY --from=build /app /app
-
 # Start the server by default, this can be overwritten at runtime
-EXPOSE 3000
-CMD [ "pnpm", "start" ]
+ENTRYPOINT [ "pnpm", "start", "--filter", "discord" ]
