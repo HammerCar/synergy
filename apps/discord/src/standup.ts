@@ -175,6 +175,7 @@ const saveStandupResponse = async (
         columns: {
           id: true,
           question: true,
+          private: true,
         },
         orderBy: (questions, { asc }) => [asc(questions.order)],
       },
@@ -224,7 +225,9 @@ const saveStandupResponse = async (
   let message = `${interaction.user.toString()}'s ${standup.name}:\n`;
 
   for (const question of questions) {
-    message += `**${question.question}**: ${question.answer}\n`;
+    if (!question.private) {
+      message += `**${question.question}**: ${question.answer}\n`;
+    }
   }
 
   await channel.send(message);
