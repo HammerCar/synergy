@@ -3,6 +3,8 @@ FROM node:20-alpine
 # Node.js app lives here
 WORKDIR /app
 
+RUN apk add --no-cache gcompat
+
 # Copy application code
 COPY . .
 RUN npm install -g pnpm
