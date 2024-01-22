@@ -10,7 +10,7 @@ ENV NODE_ENV="production"
 COPY . .
 RUN npm install -g pnpm
 RUN npm install turbo --global
-RUN pnpm install
+RUN pnpm install -D
 
 # Start the server by default, this can be overwritten at runtime
 ENTRYPOINT [ "pnpm", "start", "--filter", "discord" ]
