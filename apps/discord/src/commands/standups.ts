@@ -194,11 +194,12 @@ const create = async (
   const serverId = interaction.guildId;
 
   try {
-    await db.insert(schema.standupTemplates).values({
+    await db.insert(schema.standups).values({
       id: cuid2.createId(),
       name,
       resultChannelId: resultChannel.id,
       serverId,
+      isTemplate: true,
     });
 
     await interaction.reply(
@@ -223,11 +224,14 @@ const list = async (
 ) => {
   const serverId = interaction.guildId;
 
-  const standupTemplates = await db.query.standupTemplates.findMany({
+  const standupTemplates = await db.query.standups.findMany({
     columns: {
       name: true,
     },
-    where: eq(schema.standupTemplates.serverId, serverId),
+    where: and(
+      eq(schema.standups.serverId, serverId),
+      eq(schema.standups.isTemplate, true),
+    ),
   });
 
   const standupTemplateNames = standupTemplates.map(
@@ -250,13 +254,14 @@ const start = async (
   const standupTemplateId = interaction.options.getString("standup", true);
   const serverId = interaction.guildId;
 
-  const standupTemplate = await db.query.standupTemplates.findFirst({
+  const standupTemplate = await db.query.standups.findFirst({
     columns: {
       name: true,
     },
     where: and(
-      eq(schema.standupTemplates.serverId, serverId),
-      eq(schema.standupTemplates.id, standupTemplateId),
+      eq(schema.standups.serverId, serverId),
+      eq(schema.standups.id, standupTemplateId),
+      eq(schema.standups.isTemplate, true),
     ),
   });
 
@@ -265,7 +270,15 @@ const start = async (
     return;
   }
 
-  await startStandup();
+  try {
+    await startStandup(standupTemplateId);
+  } catch (error) {
+    await interaction.reply(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+      `Error: ${(error as any).message}`,
+    );
+    return;
+  }
 
   await interaction.reply(`Standup "${standupTemplate.name}" started!`);
 };
@@ -276,14 +289,15 @@ const deleteStandup = async (
   const standupTemplateId = interaction.options.getString("standup", true);
   const serverId = interaction.guildId;
 
-  const standupTemplate = await db.query.standupTemplates.findFirst({
+  const standupTemplate = await db.query.standups.findFirst({
     columns: {
       id: true,
       name: true,
     },
     where: and(
-      eq(schema.standupTemplates.serverId, serverId),
-      eq(schema.standupTemplates.id, standupTemplateId),
+      eq(schema.standups.serverId, serverId),
+      eq(schema.standups.id, standupTemplateId),
+      eq(schema.standups.isTemplate, true),
     ),
   });
 
@@ -295,17 +309,12 @@ const deleteStandup = async (
   const name = standupTemplate.name;
 
   await db
-    .delete(schema.questionsToStandupTemplates)
-    .where(
-      eq(
-        schema.questionsToStandupTemplates.standupTemplateId,
-        standupTemplateId,
-      ),
-    );
+    .delete(schema.questions)
+    .where(eq(schema.questions.standupId, standupTemplateId));
 
   await db
-    .delete(schema.standupTemplates)
-    .where(eq(schema.standupTemplates.id, standupTemplateId));
+    .delete(schema.standups)
+    .where(eq(schema.standups.id, standupTemplateId));
 
   await interaction.reply(`Standup "${name}" deleted!`);
 };
@@ -319,20 +328,19 @@ const addQuestion = async (
 
   const serverId = interaction.guildId;
 
-  const standupTemplate = await db.query.standupTemplates.findFirst({
+  const standupTemplate = await db.query.standups.findFirst({
     columns: {},
     where: and(
-      eq(schema.standupTemplates.serverId, serverId),
-      eq(schema.standupTemplates.id, standupTemplateId),
+      eq(schema.standups.serverId, serverId),
+      eq(schema.standups.id, standupTemplateId),
+      eq(schema.standups.isTemplate, true),
     ),
     with: {
-      questionsToStandupTemplates: {
+      questions: {
         columns: {
           order: true,
         },
-        orderBy: (questionsToStandupTemplates, { asc }) => [
-          asc(questionsToStandupTemplates.order),
-        ],
+        orderBy: (questions, { asc }) => [asc(questions.order)],
       },
     },
   });
@@ -342,50 +350,35 @@ const addQuestion = async (
     return;
   }
 
-  const order = standupTemplate.questionsToStandupTemplates
+  const availableOrderNumber = standupTemplate.questions
     .map((t) => t.order)
     .reduce((o, to) => (o === to ? o + 1 : o), 0);
 
   const questionId = cuid2.createId();
   await db.insert(schema.questions).values({
     id: questionId,
-    serverId,
+    standupId: standupTemplateId,
+    order: availableOrderNumber,
     question,
     private: privateQuestion ?? false,
   });
 
-  await db.insert(schema.questionsToStandupTemplates).values({
-    id: cuid2.createId(),
-    questionId,
-    standupTemplateId,
-    order,
-  });
-
-  const standupTemplateAfter = await db.query.standupTemplates.findFirst({
+  const standupTemplateAfter = await db.query.standups.findFirst({
     columns: {
       name: true,
     },
-    where: eq(schema.standupTemplates.id, standupTemplateId),
+    where: eq(schema.standups.id, standupTemplateId),
     with: {
-      questionsToStandupTemplates: {
-        columns: {},
-        orderBy: (questionsToStandupTemplates, { asc }) => [
-          asc(questionsToStandupTemplates.order),
-        ],
-        with: {
-          question: {
-            columns: {
-              question: true,
-            },
-          },
+      questions: {
+        columns: {
+          question: true,
         },
+        orderBy: (questions, { asc }) => [asc(questions.order)],
       },
     },
   });
 
-  const questions = standupTemplateAfter?.questionsToStandupTemplates.map(
-    (q) => q.question.question,
-  );
+  const questions = standupTemplateAfter?.questions.map((q) => q.question);
 
   await interaction.reply(
     `Question "${question}" added to standup ${standupTemplateAfter?.name}!\n\nStandup now has questions:\n${questions
@@ -399,31 +392,22 @@ const listQuestions = async (
 ) => {
   const standupTemplateId = interaction.options.getString("standup", true);
 
-  const standupTemplate = await db.query.standupTemplates.findFirst({
+  const standupTemplate = await db.query.standups.findFirst({
     columns: {
       name: true,
     },
-    where: eq(schema.standupTemplates.id, standupTemplateId),
+    where: eq(schema.standups.id, standupTemplateId),
     with: {
-      questionsToStandupTemplates: {
-        columns: {},
-        orderBy: (questionsToStandupTemplates, { asc }) => [
-          asc(questionsToStandupTemplates.order),
-        ],
-        with: {
-          question: {
-            columns: {
-              question: true,
-            },
-          },
+      questions: {
+        columns: {
+          question: true,
         },
+        orderBy: (questions, { asc }) => [asc(questions.order)],
       },
     },
   });
 
-  const questions = standupTemplate?.questionsToStandupTemplates.map(
-    (q) => q.question.question,
-  );
+  const questions = standupTemplate?.questions.map((q) => q.question);
 
   await interaction.reply(
     `Questions for standup ${standupTemplate?.name}:\n${questions
@@ -438,28 +422,19 @@ const deleteQuestion = async (
   const standupTemplateId = interaction.options.getString("standup", true);
   const questionId = interaction.options.getString("question", true);
 
-  const standupTemplate = await db.query.standupTemplates.findFirst({
+  const standupTemplate = await db.query.standups.findFirst({
     columns: {
       name: true,
     },
-    where: eq(schema.standupTemplates.id, standupTemplateId),
+    where: eq(schema.standups.id, standupTemplateId),
     with: {
-      questionsToStandupTemplates: {
+      questions: {
         columns: {
           id: true,
           order: true,
+          question: true,
         },
-        orderBy: (questionsToStandupTemplates, { asc }) => [
-          asc(questionsToStandupTemplates.order),
-        ],
-        with: {
-          question: {
-            columns: {
-              id: true,
-              question: true,
-            },
-          },
-        },
+        orderBy: (questions, { asc }) => [asc(questions.order)],
       },
     },
   });
@@ -469,36 +444,30 @@ const deleteQuestion = async (
     return;
   }
 
-  const question = standupTemplate.questionsToStandupTemplates.find(
-    (q) => q.question.id === questionId,
-  );
+  const question = standupTemplate.questions.find((q) => q.id === questionId);
 
   if (!question) {
     await interaction.reply(`Question not found!`);
     return;
   }
 
-  await db
-    .delete(schema.questionsToStandupTemplates)
-    .where(eq(schema.questionsToStandupTemplates.id, question.id));
+  await db.delete(schema.questions).where(eq(schema.questions.id, question.id));
 
-  await db.delete(schema.questions).where(eq(schema.questions.id, questionId));
-
-  for (const q of standupTemplate.questionsToStandupTemplates) {
+  for (const q of standupTemplate.questions) {
     if (q.order > question.order) {
       await db
-        .update(schema.questionsToStandupTemplates)
+        .update(schema.questions)
         .set({ order: q.order - 1 })
-        .where(eq(schema.questionsToStandupTemplates.id, q.id));
+        .where(eq(schema.questions.id, q.id));
     }
   }
 
-  const questions = standupTemplate.questionsToStandupTemplates
-    .filter((q) => q.question.id !== questionId)
-    .map((q) => q.question.question);
+  const questions = standupTemplate.questions
+    .filter((q) => q.id !== questionId)
+    .map((q) => q.question);
 
   await interaction.reply(
-    `Question "${question.question.question}" deleted from standup ${
+    `Question "${question.question}" deleted from standup ${
       standupTemplate.name
     }!\n\nStandup now has questions:\n${questions
       .map((q, index) => `${index + 1}. ${q}`)
@@ -512,14 +481,17 @@ const autocompleteStandup = async (
   const standupName = interaction.options.getString("standup", true);
   const serverId = interaction.guildId;
 
-  const standupTemplates = await db.query.standupTemplates.findMany({
+  const standupTemplates = await db.query.standups.findMany({
     columns: {
       id: true,
       name: true,
     },
     where: and(
-      eq(schema.standupTemplates.serverId, serverId),
-      like(schema.standupTemplates.name, `%${standupName}%`),
+      and(
+        eq(schema.standups.serverId, serverId),
+        eq(schema.standups.isTemplate, true),
+      ),
+      like(schema.standups.name, `%${standupName}%`),
     ),
   });
 
@@ -540,23 +512,16 @@ const autocompleteQuestion = async (
   //const serverId = interaction.guildId;
   const standupTemplateId = standupTemplateOption.value?.toString() ?? "";
 
-  const standupTemplate = await db.query.standupTemplates.findFirst({
+  const standupTemplate = await db.query.standups.findFirst({
     columns: {},
-    where: and(eq(schema.standupTemplates.id, standupTemplateId)),
+    where: and(eq(schema.standups.id, standupTemplateId)),
     with: {
-      questionsToStandupTemplates: {
-        columns: {},
-        orderBy: (questionsToStandupTemplates, { asc }) => [
-          asc(questionsToStandupTemplates.order),
-        ],
-        with: {
-          question: {
-            columns: {
-              id: true,
-              question: true,
-            },
-          },
+      questions: {
+        columns: {
+          id: true,
+          question: true,
         },
+        orderBy: (questions, { asc }) => [asc(questions.order)],
       },
     },
   });
@@ -566,15 +531,13 @@ const autocompleteQuestion = async (
     return;
   }
 
-  const options = standupTemplate.questionsToStandupTemplates
+  const options = standupTemplate.questions
     .filter((q) =>
-      q.question.question
-        .toLocaleLowerCase()
-        .includes(question.toLocaleLowerCase()),
+      q.question.toLocaleLowerCase().includes(question.toLocaleLowerCase()),
     )
     .map((q) => ({
-      name: q.question.question,
-      value: q.question.id,
+      name: q.question,
+      value: q.id,
     }));
 
   await interaction.respond(options);

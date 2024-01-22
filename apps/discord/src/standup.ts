@@ -1,185 +1,122 @@
-import type { Message, User } from "discord.js";
+import type { ButtonInteraction, ModalSubmitInteraction } from "discord.js";
 import cuid2 from "@paralleldrive/cuid2";
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+} from "discord.js";
 
 import { and, db, eq, schema } from "@acme/db";
 
 import client from "./bot";
 
-const startMessage = "Standup time!";
-//const questions = [
-//  "What went well?",
-//  "What didn't go well?",
-//  "What should we do differently next time?",
-//];
-const endMessage = "Standup over!";
-
-const sleep = (ms: number) => {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-};
-
-// TODO: Add support for multiple standups
-const startStandup = async () => {
+const startStandup = async (standupTemplateId: string) => {
   console.log("Starting standup...");
 
-  const guild = await client.guilds.fetch(process.env.GUILD_ID ?? "");
-  await guild.members.fetch();
+  const channel = await client.channels.fetch(process.env.CHANNEL_ID ?? "");
 
-  const role = await guild.roles.fetch(process.env.STANDUP_ROLE_ID ?? "");
-  const members = role?.members.map((member) => member.user);
+  if (!channel || !channel.isTextBased()) {
+    throw new Error("Channel not found!");
+  }
 
-  const standupTemplate = await db.query.standupTemplates.findFirst({
+  const standupId = await createStandupFromTemplate(standupTemplateId);
+
+  const standupButton = new ButtonBuilder()
+    .setCustomId("standup-button_" + standupId)
+    .setLabel("Participate")
+    .setStyle(ButtonStyle.Primary);
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    standupButton,
+  );
+
+  await channel.send({
+    content: "Standup time!",
+    components: [row],
+  });
+};
+
+const createStandupFromTemplate = async (standupTemplateId: string) => {
+  const standupTemplate = await db.query.standups.findFirst({
     columns: {
       name: true,
       resultChannelId: true,
       serverId: true,
     },
-    where: eq(schema.standups.serverId, process.env.GUILD_ID ?? ""),
+    where: and(
+      and(
+        eq(schema.standups.id, standupTemplateId),
+        eq(schema.standups.serverId, process.env.GUILD_ID ?? ""),
+        eq(schema.standups.isTemplate, true),
+      ),
+    ),
     with: {
-      questionsToStandupTemplates: {
-        with: {
-          question: {
-            columns: {
-              id: true,
-              question: true,
-            },
-          },
+      questions: {
+        columns: {
+          id: true,
+          question: true,
+          order: true,
+          private: true,
         },
       },
     },
   });
 
   if (!standupTemplate) {
-    console.error("No standup template found!");
-    return;
+    throw new Error("No standup template found!");
   }
 
-  const questionsToStandupTemplate =
-    standupTemplate.questionsToStandupTemplates[0];
-  if (!questionsToStandupTemplate) {
-    console.error("No questions found!");
-    return;
+  const questions = standupTemplate.questions;
+  if (!questions.length) {
+    throw new Error("No questions found!");
   }
 
   const standupId = cuid2.createId();
   await db.insert(schema.standups).values({
     id: standupId,
     name: standupTemplate.name,
-    date: new Date(),
     resultChannelId: standupTemplate.resultChannelId,
     serverId: standupTemplate.serverId,
+    isTemplate: false,
   });
 
-  for (const question of standupTemplate.questionsToStandupTemplates) {
-    await db.insert(schema.questionsToStandups).values({
+  for (const question of questions) {
+    await db.insert(schema.questions).values({
       id: cuid2.createId(),
-      questionId: question.question.id,
       standupId,
+      question: question.question,
       order: question.order,
+      private: question.private,
     });
   }
 
-  const question = questionsToStandupTemplate.question;
-  const questionId = question.id;
-  const questionString = question.question;
-
-  const promises = members?.map(async (member) => {
-    if (member) {
-      const dmChannel = await member.createDM();
-      await dmChannel.send(startMessage);
-
-      await sendQuestion(member, questionId, standupId, questionString);
-    }
-  });
-
-  const res = await Promise.allSettled(promises ?? []);
-  console.log(res);
+  return standupId;
 };
 
-const sendQuestion = async (
-  user: User,
-  questionId: string,
+const openStandup = async (
+  interaction: ButtonInteraction,
   standupId: string,
-  question: string,
 ) => {
-  const dmChannel = await user.createDM();
-
-  await db
-    .insert(schema.standupProgresses)
-    .values({
-      id: cuid2.createId(),
-      userId: user.id,
-      currentQuestionId: questionId,
-      currentStandupId: standupId,
-    })
-    .onDuplicateKeyUpdate({
-      set: {
-        currentQuestionId: questionId,
-      },
-    })
-    .execute();
-
-  await dmChannel.sendTyping();
-  await sleep(500);
-
-  await dmChannel.send(question);
-};
-
-const onDirectMessage = async (message: Message) => {
-  const user = message.author;
-  const answer = message.content;
-
-  const standupProgress = await db.query.standupProgresses.findFirst({
-    columns: {
-      currentQuestionId: true,
-      currentStandupId: true,
-    },
-    where: eq(schema.standupProgresses.userId, user.id),
-  });
-
-  const lastQuestionId = standupProgress?.currentQuestionId;
-  const currentStandupId = standupProgress?.currentStandupId;
-
-  if (!lastQuestionId || !currentStandupId) {
-    await message.channel.send("Standup hasn't started yet!");
-    return;
-  }
-
-  const questionToStandup = await db.query.questionsToStandups.findFirst({
-    columns: {
-      id: true,
-    },
-    where: and(
-      eq(schema.questionsToStandups.questionId, lastQuestionId),
-      eq(schema.questionsToStandups.standupId, currentStandupId),
-    ),
-  });
-
-  if (!questionToStandup) {
-    console.error("No question found!");
-    return;
-  }
-
-  await db.insert(schema.answers).values({
-    id: cuid2.createId(),
-    userId: user.id,
-    questionToStandupId: questionToStandup.id,
-    answer,
-  });
+  console.log("user", interaction.user.id, "is opening standup", standupId);
 
   const standup = await db.query.standups.findFirst({
-    columns: {},
-    where: eq(schema.standups.id, currentStandupId),
+    where: eq(schema.standups.id, standupId),
     with: {
-      questionsToStandups: {
-        orderBy: (questionsToStandups, { asc }) => [
-          asc(questionsToStandups.order),
-        ],
+      questions: {
+        columns: {
+          id: true,
+          question: true,
+        },
+        orderBy: (questions, { asc }) => [asc(questions.order)],
         with: {
-          question: {
+          answers: {
             columns: {
-              id: true,
-              question: true,
+              userId: true,
             },
+            where: eq(schema.answers.userId, interaction.user.id),
           },
         },
       },
@@ -187,48 +124,114 @@ const onDirectMessage = async (message: Message) => {
   });
 
   if (!standup) {
-    console.error("No standup found!");
-    return;
+    throw new Error("No standup found!");
   }
 
-  if (!standup.questionsToStandups) {
-    console.error("No questions found!");
-    return;
-  }
-
-  const lastId = standup.questionsToStandups.findIndex(
-    (q) => q.question.id === lastQuestionId,
+  const questions = standup.questions.filter(
+    (question) => !question.answers.length,
   );
-  const nextQuestion = standup.questionsToStandups[lastId + 1];
 
-  if (!nextQuestion) {
-    await endStandup(user);
+  if (!questions.length) {
+    await interaction.reply({
+      content: "You have already answered to this standup!",
+      ephemeral: true,
+    });
     return;
   }
 
-  const nextQuestionId = nextQuestion.question.id;
-  const nextQuestionString = nextQuestion.question.question;
+  const modal = new ModalBuilder()
+    .setCustomId("standup-modal_" + standupId)
+    .setTitle(standup.name);
 
-  await sendQuestion(
-    user,
-    nextQuestionId,
-    currentStandupId,
-    nextQuestionString,
-  );
+  for (const question of questions) {
+    modal.addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+          .setCustomId(question.id)
+          .setLabel(question.question)
+          .setRequired(true)
+          .setStyle(TextInputStyle.Paragraph),
+      ),
+    );
+  }
+
+  await interaction.showModal(modal);
 };
 
-const endStandup = async (user: User) => {
-  const dmChannel = await user.createDM();
+const saveStandupResponse = async (
+  interaction: ModalSubmitInteraction,
+  standupId: string,
+) => {
+  console.log("user", interaction.user.id, "is saving standup", standupId);
 
-  await db
-    .delete(schema.standupProgresses)
-    .where(eq(schema.standupProgresses.userId, user.id))
-    .execute();
+  const standup = await db.query.standups.findFirst({
+    columns: {
+      name: true,
+      resultChannelId: true,
+    },
+    where: eq(schema.standups.id, standupId),
+    with: {
+      questions: {
+        columns: {
+          id: true,
+          question: true,
+        },
+      },
+    },
+  });
 
-  await dmChannel.sendTyping();
-  await sleep(500);
+  if (!standup) {
+    throw new Error("No standup found!");
+  }
 
-  await dmChannel.send(endMessage);
+  const questions = standup.questions.map((question) => {
+    const answer = interaction.fields.getTextInputValue(question.id);
+
+    if (!answer) {
+      throw new Error("No answer found!");
+    }
+
+    return {
+      ...question,
+      answer,
+    };
+  });
+
+  try {
+    for (const question of questions) {
+      await db.insert(schema.answers).values({
+        id: cuid2.createId(),
+        userId: interaction.user.id,
+        questionId: question.id,
+        answer: question.answer,
+      });
+    }
+  } catch (error) {
+    await interaction.reply({
+      content: "There was an error while saving your response!",
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const channel = await client.channels.fetch(standup.resultChannelId);
+
+  if (!channel || !channel.isTextBased()) {
+    throw new Error("Channel not found!");
+  }
+
+  let message = `${interaction.user.toString()}'s ${standup.name}:\n`;
+
+  for (const question of questions) {
+    message += `**${question.question}**: ${question.answer}\n`;
+  }
+
+  await channel.send(message);
+
+  await interaction.reply({
+    content: "Standup response saved!",
+    ephemeral: true,
+  });
 };
 
-export { onDirectMessage, startStandup };
+export { openStandup, saveStandupResponse, startStandup };
