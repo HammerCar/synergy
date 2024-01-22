@@ -176,6 +176,7 @@ const saveStandupResponse = async (
           id: true,
           question: true,
         },
+        orderBy: (questions, { asc }) => [asc(questions.order)],
       },
     },
   });
