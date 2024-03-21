@@ -1,18 +1,17 @@
-import { connect } from "@planetscale/database";
-import { drizzle } from "drizzle-orm/planetscale-serverless";
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
 
 import * as standup from "./schema/standup";
 
 export const schema = { ...standup };
 
-export { mySqlTable as tableCreator } from "./schema/_table";
+export { sqliteTable as tableCreator } from "./schema/_table";
 
 export * from "drizzle-orm";
 
-const connection = connect({
-  host: process.env.DB_HOST!,
-  username: process.env.DB_USERNAME!,
-  password: process.env.DB_PASSWORD!,
+const client = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
-export const db = drizzle(connection, { schema });
+export const db = drizzle(client, { schema });

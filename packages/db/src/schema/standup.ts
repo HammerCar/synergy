@@ -1,45 +1,39 @@
 import { relations, sql } from "drizzle-orm";
-import {
-  boolean,
-  int,
-  timestamp,
-  unique,
-  varchar,
-} from "drizzle-orm/mysql-core";
+import { integer, text, unique } from "drizzle-orm/sqlite-core";
 
-import { mySqlTable } from "./_table";
+import { sqliteTable } from "./_table";
 
-export const standups = mySqlTable("standup", {
-  id: varchar("id", { length: 24 }).primaryKey(),
+export const standups = sqliteTable("standup", {
+  id: text("id", { length: 24 }).primaryKey(),
 
-  serverId: varchar("server_id", { length: 24 }).notNull(),
-  name: varchar("name", { length: 256 }).notNull(),
-  resultChannelId: varchar("result_channel_id", { length: 24 }).notNull(),
-  isTemplate: boolean("is_template").notNull().default(false),
+  serverId: text("server_id", { length: 24 }).notNull(),
+  name: text("name", { length: 256 }).notNull(),
+  resultChannelId: text("result_channel_id", { length: 24 }).notNull(),
+  isTemplate: integer("is_template", { mode: "boolean" })
+    .notNull()
+    .default(false),
 
-  createdAt: timestamp("created_at")
+  createdAt: integer("created_at", { mode: "timestamp" })
     .default(sql`CURRENT_TIMESTAMP`)
     .notNull(),
-  updatedAt: timestamp("updated_at").onUpdateNow(),
 });
 
 export const standupsRelations = relations(standups, ({ many }) => ({
   questions: many(questions),
 }));
 
-export const questions = mySqlTable("question", {
-  id: varchar("id", { length: 24 }).primaryKey(),
+export const questions = sqliteTable("question", {
+  id: text("id", { length: 24 }).primaryKey(),
 
-  standupId: varchar("standup_id", { length: 24 }).notNull(),
-  order: int("order").notNull(),
+  standupId: text("standup_id", { length: 24 }).notNull(),
+  order: integer("order").notNull(),
 
-  question: varchar("question", { length: 256 }).notNull(),
-  private: boolean("private").notNull().default(false),
+  question: text("question", { length: 256 }).notNull(),
+  private: integer("private", { mode: "boolean" }).notNull().default(false),
 
-  createdAt: timestamp("created_at")
+  createdAt: integer("created_at", { mode: "timestamp" })
     .default(sql`CURRENT_TIMESTAMP`)
     .notNull(),
-  updatedAt: timestamp("updated_at").onUpdateNow(),
 });
 
 export const questionsRelations = relations(questions, ({ one, many }) => ({
@@ -50,21 +44,20 @@ export const questionsRelations = relations(questions, ({ one, many }) => ({
   answers: many(answers),
 }));
 
-export const answers = mySqlTable(
+export const answers = sqliteTable(
   "answers",
   {
-    id: varchar("id", { length: 24 }).primaryKey(),
+    id: text("id", { length: 24 }).primaryKey(),
 
-    userId: varchar("user_id", { length: 24 }).notNull(),
-    questionId: varchar("question_id", {
+    userId: text("user_id", { length: 24 }).notNull(),
+    questionId: text("question_id", {
       length: 24,
     }).notNull(),
-    answer: varchar("answer", { length: 1024 }).notNull(),
+    answer: text("answer", { length: 1024 }).notNull(),
 
-    createdAt: timestamp("created_at")
+    createdAt: integer("created_at", { mode: "timestamp" })
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
-    updatedAt: timestamp("updated_at").onUpdateNow(),
   },
   (t) => ({
     unq: unique().on(t.userId, t.questionId),
