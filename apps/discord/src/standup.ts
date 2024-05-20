@@ -222,11 +222,11 @@ const saveStandupResponse = async (
     throw new Error("Channel not found!");
   }
 
-  let message = `${interaction.user.toString()}'s ${standup.name}:\n`;
+  let message = `${interaction.user.toString()}'s ${standup.name}:\n\n`;
 
   for (const question of questions) {
     if (!question.private) {
-      message += `**${question.question}**: ${question.answer}\n`;
+      message += `> **${question.question}**\n> ${question.answer}\n\n`;
     }
   }
 
