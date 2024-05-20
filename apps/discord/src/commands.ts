@@ -1,6 +1,3 @@
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import type {
   AutocompleteInteraction,
   ChatInputCommandInteraction,
@@ -9,6 +6,8 @@ import type {
   SlashCommandSubcommandsOnlyBuilder,
 } from "discord.js";
 import { Collection, REST, Routes } from "discord.js";
+
+import standups from "./commands/standups";
 
 export interface Command {
   data:
@@ -21,32 +20,21 @@ export interface Command {
 
 const commands = new Collection<string, Command>();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+export const addCommand = (name: string, command: Command) => {
+  if ("data" in command && "execute" in command) {
+    commands.set(command.data.name, command);
 
-const folderPath = path.join(__dirname, "commands");
-
-(async () => {
-  const commandFiles = fs
-    .readdirSync(folderPath)
-    .filter((file) => file.endsWith(".ts"));
-
-  console.log(commandFiles);
-  for (const file of commandFiles) {
-    const filePath = path.join(folderPath, file);
-
-    const command = ((await import(filePath)) as { default: Command }).default;
-
-    // Set a new item in the Collection with the key as the command name and the value as the exported module
-    if ("data" in command && "execute" in command) {
-      commands.set(command.data.name, command);
-    } else {
-      console.log(
-        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`,
-      );
-    }
+    console.log(`Command ${name} has been added.`);
+  } else {
+    console.log(
+      `[WARNING] The command ${name} is missing a required "data" or "execute" property.`,
+    );
   }
+};
 
+addCommand("standups", standups);
+
+const updateDiscordCommands = async () => {
   // Construct and prepare an instance of the REST module
   const rest = new REST().setToken(process.env.DISCORD_TOKEN ?? "");
 
@@ -69,7 +57,10 @@ const folderPath = path.join(__dirname, "commands");
     // And of course, make sure you catch and log any errors!
     console.error(error);
   }
-})().catch(console.error);
+};
+setTimeout(() => {
+  updateDiscordCommands().catch(console.error);
+}, 10_000);
 
 export const autocompleteInteraction = async (
   interaction: AutocompleteInteraction,

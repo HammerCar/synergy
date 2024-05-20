@@ -2,11 +2,10 @@
   "name": "@acme/discord",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
-    "start": "tsx src/index.ts",
+    "start": "node dist/index.js",
     "dev": "pnpm with-env tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=esnext --outfile=dist/index.js",
     "with-env": "dotenv -e ../../.env --"
   },
   "dependencies": {
@@ -23,10 +22,11 @@
     "@acme/prettier-config": "workspace:^0.1.0",
     "@acme/tailwind-config": "workspace:^0.1.0",
     "@acme/tsconfig": "workspace:^0.1.0",
+    "@flydotio/dockerfile": "^0.5.0",
     "@types/node": "^20.10.6",
     "@types/node-cron": "^3.0.3",
-    "@flydotio/dockerfile": "^0.5.0",
     "dotenv-cli": "^7.3.0",
+    "esbuild": "0.21.3",
     "eslint": "^8.56.0",
     "nodemon": "^3.0.2",
     "prettier": "^3.1.1",
