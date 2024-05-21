@@ -3,16 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start": "node dist/index.js",
+    "start": "tsx src/index.ts",
     "dev": "pnpm with-env tsx watch src/index.ts",
-    "build": "esbuild src/index.ts --bundle --platform=node --target=esnext --minify --outfile=dist/index.js",
+    "build": "tsc",
     "with-env": "dotenv -e ../../.env --"
   },
   "dependencies": {
     "@acme/db": "workspace:^0.1.0",
     "@paralleldrive/cuid2": "^2.2.2",
     "discord-api-types": "^0.37.67",
-    "discord.js": "^14.13.0",
+    "discord.js": "^14.15.2",
     "node-cron": "^3.0.3",
     "tsx": "^4.7.0",
     "zod": "^3.22.4"
