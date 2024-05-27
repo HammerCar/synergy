@@ -34,7 +34,7 @@ const startStandup = async (standupTemplateId: string) => {
   );
 
   await channel.send({
-    content: "Standup time!",
+    content: "Standup time @everyone!",
     components: [row],
   });
 };
