@@ -18,7 +18,7 @@ const startStandup = async (standupTemplateId: string) => {
 
   const channel = await client.channels.fetch(process.env.CHANNEL_ID ?? "");
 
-  if (!channel || !channel.isTextBased()) {
+  if (!channel || !channel.isTextBased() || channel.isDMBased()) {
     throw new Error("Channel not found!");
   }
 
@@ -218,7 +218,7 @@ const saveStandupResponse = async (
 
   const channel = await client.channels.fetch(standup.resultChannelId);
 
-  if (!channel || !channel.isTextBased()) {
+  if (!channel || !channel.isTextBased() || channel.isDMBased()) {
     throw new Error("Channel not found!");
   }
 

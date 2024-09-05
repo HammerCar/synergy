@@ -11,8 +11,8 @@
   "dependencies": {
     "@acme/db": "workspace:^0.1.0",
     "@paralleldrive/cuid2": "^2.2.2",
-    "discord-api-types": "^0.37.67",
-    "discord.js": "^14.15.2",
+    "discord-api-types": "^0.37.99",
+    "discord.js": "^14.16.1",
     "node-cron": "^3.0.3",
     "tsx": "^4.7.0",
     "zod": "^3.22.4"

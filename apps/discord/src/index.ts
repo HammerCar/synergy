@@ -14,12 +14,14 @@ client.on(Events.ClientReady, () => {
   });
 });
 
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 client.on(Events.MessageCreate, async (message) => {
   if (message.content === "!ping") {
     await message.reply("Pong!");
   }
 });
 
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isAutocomplete()) {
     await autocompleteInteraction(interaction);
