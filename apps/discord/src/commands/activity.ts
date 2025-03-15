@@ -63,6 +63,7 @@ const list = async (
     );
   }
 
+  userActivityCounts.sort((a, b) => b.count - a.count);
   const userActivities = userActivityCounts.map(({ userId, count }) => {
     const user = users.get(userId);
     return `${user?.displayName} (${count})`;
