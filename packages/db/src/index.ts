@@ -1,9 +1,10 @@
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 
+import * as activity from "./schema/activity";
 import * as standup from "./schema/standup";
 
-export const schema = { ...standup };
+export const schema = { ...standup, ...activity };
 
 export { sqliteTable as tableCreator } from "./schema/_table";
 

@@ -1,5 +1,10 @@
+import cuid2 from "@paralleldrive/cuid2";
+import { format } from "date-fns";
 import { Events } from "discord.js";
+import { activities } from "node_modules/@acme/db/src/schema/activity";
 import cron from "node-cron";
+
+import { db } from "@acme/db";
 
 import client from "./bot";
 import { autocompleteInteraction, executeInteraction } from "./commands";
@@ -16,9 +21,20 @@ client.on(Events.ClientReady, () => {
 
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 client.on(Events.MessageCreate, async (message) => {
+  console.log(message.author);
+
   if (message.content === "!ping") {
     await message.reply("Pong!");
   }
+
+  await db
+    .insert(activities)
+    .values({
+      id: cuid2.createId(),
+      userId: message.author.id,
+      date: format(new Date(), "yyyy-MM-dd"),
+    })
+    .onConflictDoNothing();
 });
 
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
