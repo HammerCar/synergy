@@ -4,7 +4,7 @@ import { Events } from "discord.js";
 import { activities } from "node_modules/@acme/db/src/schema/activity";
 import cron from "node-cron";
 
-import { db } from "@acme/db";
+import { and, db, eq } from "@acme/db";
 
 import client from "./bot";
 import { autocompleteInteraction, executeInteraction } from "./commands";
@@ -21,20 +21,34 @@ client.on(Events.ClientReady, () => {
 
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 client.on(Events.MessageCreate, async (message) => {
-  console.log(message.author);
-
   if (message.content === "!ping") {
     await message.reply("Pong!");
   }
 
-  await db
-    .insert(activities)
-    .values({
+  if (message.guildId && !message.author.bot) {
+    // NOTE: The unique constraint isn't working for some reason
+    const existingActivity = await db
+      .select()
+      .from(activities)
+      .where(
+        and(
+          eq(activities.userId, message.author.id),
+          eq(activities.serverId, message.guildId),
+          eq(activities.date, format(new Date(), "yyyy-MM-dd")),
+        ),
+      );
+
+    if (existingActivity.length > 0) {
+      return;
+    }
+
+    await db.insert(activities).values({
       id: cuid2.createId(),
       userId: message.author.id,
+      serverId: message.guildId,
       date: format(new Date(), "yyyy-MM-dd"),
-    })
-    .onConflictDoNothing();
+    });
+  }
 });
 
 // eslint-disable-next-line @typescript-eslint/no-misused-promises

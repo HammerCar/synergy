@@ -11,21 +11,21 @@
     "clean": "rm -rf .turbo node_modules",
     "format": "prettier --check . --ignore-path ../../.gitignore",
     "lint": "eslint .",
-    "push": "drizzle-kit push:sqlite",
+    "push": "drizzle-kit push",
     "studio": "drizzle-kit studio",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@libsql/client": "^0.5.6",
-    "@planetscale/database": "^1.13.0",
-    "drizzle-orm": "^0.29.3"
+    "@libsql/client": "^0.14.0",
+    "drizzle-orm": "^0.40.0",
+    "firebase-admin": "^13.2.0"
   },
   "devDependencies": {
     "@acme/eslint-config": "workspace:^0.2.0",
     "@acme/prettier-config": "workspace:^0.1.0",
     "@acme/tsconfig": "workspace:^0.1.0",
     "dotenv-cli": "^7.3.0",
-    "drizzle-kit": "^0.20.10",
+    "drizzle-kit": "^0.30.5",
     "eslint": "^8.56.0",
     "prettier": "^3.1.1",
     "typescript": "^5.3.3"

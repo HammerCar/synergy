@@ -9,6 +9,7 @@ export const activities = sqliteTable(
     id: text("id", { length: 24 }).primaryKey(),
 
     userId: text("user_id", { length: 24 }).notNull(),
+    serverId: text("server_id", { length: 24 }).notNull(),
     date: text("date", { length: 10 }).notNull(),
 
     createdAt: integer("created_at", { mode: "timestamp" })
@@ -16,6 +17,6 @@ export const activities = sqliteTable(
       .notNull(),
   },
   (t) => ({
-    unq: unique().on(t.userId, t.date),
+    unq: unique().on(t.userId, t.serverId, t.date),
   }),
 );

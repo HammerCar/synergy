@@ -7,6 +7,7 @@ import type {
 } from "discord.js";
 import { Collection, REST, Routes } from "discord.js";
 
+import activity from "./commands/activity";
 import standups from "./commands/standups";
 
 export interface Command {
@@ -33,6 +34,7 @@ export const addCommand = (name: string, command: Command) => {
 };
 
 addCommand("standups", standups);
+addCommand("activity", activity);
 
 const updateDiscordCommands = async () => {
   // Construct and prepare an instance of the REST module

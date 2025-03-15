@@ -6,7 +6,7 @@ dotenv.config({ path: "../../.env" });
 export default {
   schema: "./src/schema",
   out: "./drizzle/migrations",
-  driver: "turso",
+  dialect: "turso",
   dbCredentials: {
     url: process.env.TURSO_DATABASE_URL!,
     authToken: process.env.TURSO_AUTH_TOKEN,
