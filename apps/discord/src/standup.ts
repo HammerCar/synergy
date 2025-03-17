@@ -16,13 +16,8 @@ import client from "./bot";
 const startStandup = async (standupTemplateId: string) => {
   console.log("Starting standup...");
 
-  const channel = await client.channels.fetch(process.env.CHANNEL_ID ?? "");
-
-  if (!channel || !channel.isTextBased() || channel.isDMBased()) {
-    throw new Error("Channel not found!");
-  }
-
-  const standupId = await createStandupFromTemplate(standupTemplateId);
+  const [standupId, resultChannelId] =
+    await createStandupFromTemplate(standupTemplateId);
 
   const standupButton = new ButtonBuilder()
     .setCustomId("standup-button_" + standupId)
@@ -32,6 +27,12 @@ const startStandup = async (standupTemplateId: string) => {
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     standupButton,
   );
+
+  const channel = await client.channels.fetch(resultChannelId ?? "");
+
+  if (!channel || !channel.isTextBased() || channel.isDMBased()) {
+    throw new Error("Channel not found!");
+  }
 
   await channel.send({
     content: "Standup time @everyone!",
@@ -93,7 +94,7 @@ const createStandupFromTemplate = async (standupTemplateId: string) => {
     });
   }
 
-  return standupId;
+  return [standupId, standupTemplate.resultChannelId];
 };
 
 const openStandup = async (
