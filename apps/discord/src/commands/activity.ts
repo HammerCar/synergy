@@ -27,6 +27,8 @@ export default {
       return;
     }
 
+    await interaction.deferReply({ ephemeral: true });
+
     await list(interaction);
   },
 } satisfies Command;
@@ -70,11 +72,11 @@ const list = async (
   });
 
   if (!userActivities.length) {
-    await interaction.reply("No activity found!");
+    await interaction.editReply("No activity found!");
     return;
   }
 
-  await interaction.reply(
+  await interaction.editReply(
     `Activity: \n${userActivities
       .map((n, i) => `- ${i + 1}. ${n}`)
       .join("\n")}`,
